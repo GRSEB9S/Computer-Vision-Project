@@ -52,7 +52,10 @@ def train():
         summary_op = tf.merge_all_summaries()
 
         # Build an initialization operation to run below.
-        init = tf.global_variables_initializer()
+        if (tf.__version__ >= '0.11.0'):
+            init = tf.global_variables_initializer()
+        else:
+            init = tf.initialize_all_variables()
 
         # Start running operations on the Graph.
         sess = tf.Session(config=tf.ConfigProto(
