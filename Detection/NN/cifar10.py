@@ -176,7 +176,7 @@ def inputs(eval_data):
     """
     if not FLAGS.data_dir:
         raise ValueError('Please supply a data_dir')
-    data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+    data_dir = os.path.join(FLAGS.data_dir)
     images, labels = cifar10_input.inputs(eval_data=eval_data,
                                           data_dir=data_dir,
                                           batch_size=FLAGS.batch_size)
@@ -304,6 +304,24 @@ def accu(logits, labels):
     accu = tf.reduce_mean(tf.cast(tf.equal(prediction, labels), tf.float32))
     tf.scalar_summary('Train_accu', accu)
     return accu
+
+
+def precision(logits, labels):
+    prediction = tf.nn.softmax(logits)
+    prediction = tf.cast(tf.arg_max(prediction, 1, name='Prediction'), tf.int32)
+    pred_positive = tf.reduce_sum(tf.cast(tf.equal(prediction, 1), tf.int32))
+    true_positive = tf.reduce_sum(tf.equal(labels, 1))
+    return tf.div(true_positive, pred_positive)
+
+
+def recall(logits, labels):
+    prediction = tf.nn.softmax(logits)
+    prediction = tf.cast(tf.arg_max(prediction, 1, name='Prediction'), tf.int32)
+    true_positive = tf.equal(labels, 1)  # tensor of bool
+    pred_negative = tf.equal(prediction, 0)  # tensor of bool
+    false_negative = tf.reduce_sum(tf.equal(true_positive, pred_negative))
+    true_positive = tf.reduce_sum(true_positive)
+    return tf.div(true_positive, tf.add(true_positive, false_negative))
 
 
 def _add_loss_summaries(total_loss):
