@@ -14,7 +14,7 @@ import cifar10
 
 FLAGS = tf.app.flags.FLAGS
 
-tf.app.flags.DEFINE_string('train_dir', '/tmp/cifar10_train',
+tf.app.flags.DEFINE_string('train_dir', './cifar10_train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
@@ -49,11 +49,13 @@ def train():
         summary_op = tf.merge_all_summaries()
 
         # Build an initialization operation to run below.
-        init = tf.global_variables_initializer()
+        init = tf.initialize_all_variables()
 
         # Start running operations on the Graph.
         sess = tf.Session(config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement))
+            log_device_placement=FLAGS.log_device_placement,
+            device_count = {'GPU': 0}
+        ))
         sess.run(init)
 
         # Start the queue runners.

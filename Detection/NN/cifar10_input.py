@@ -149,7 +149,7 @@ def distorted_inputs(data_dir, batch_size):
     # distortions applied to the image.
 
     # Randomly crop a [height, width] section of the image.
-    distorted_image = tf.random_crop(reshaped_image, [height, width, 3])
+    distorted_image = tf.random_crop(reshaped_image, [height, width, 1])
 
     # Randomly flip the image horizontally.
     distorted_image = tf.image.random_flip_left_right(distorted_image)
@@ -162,7 +162,10 @@ def distorted_inputs(data_dir, batch_size):
                                                lower=0.2, upper=1.8)
 
     # Subtract off the mean and divide by the variance of the pixels.
-    float_image = tf.image.per_image_standardization(distorted_image)
+    if (tf.__version__ != '0.11.0'):
+        float_image = tf.image.per_image_standardization(distorted_image)
+    else:
+        float_image = tf.image.per_image_whitening(distorted_image)
 
     # Ensure that the random shuffling has good mixing properties.
     min_fraction_of_examples_in_queue = 0.4
