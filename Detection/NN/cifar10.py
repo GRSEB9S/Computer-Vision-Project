@@ -207,7 +207,7 @@ def inference(images):
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.0))
+        biases = _variable_on_cpu('biases', [36], tf.constant_initializer(0.0))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv1 = tf.nn.relu(pre_activation, name=scope.name)
         _activation_summary(conv1)
@@ -226,7 +226,7 @@ def inference(images):
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
-        biases = _variable_on_cpu('biases', [64], tf.constant_initializer(0.1))
+        biases = _variable_on_cpu('biases', [48], tf.constant_initializer(0.1))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv2 = tf.nn.relu(pre_activation, name=scope.name)
         _activation_summary(conv2)
@@ -245,7 +245,7 @@ def inference(images):
         dim = reshape.get_shape()[1].value
         weights = _variable_with_weight_decay('weights', shape=[dim, 512],
                                               stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
+        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
         local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
         local3 = tf.nn.dropout(local3, KEEP_RATE)
         _activation_summary(local3)
@@ -254,7 +254,7 @@ def inference(images):
     with tf.variable_scope('local4') as scope:
         weights = _variable_with_weight_decay('weights', shape=[512, 512],
                                               stddev=0.04, wd=0.004)
-        biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
+        biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
         local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
         local4 = tf.nn.dropout(local4, KEEP_RATE)
         _activation_summary(local4)
@@ -272,6 +272,7 @@ def inference(images):
         _activation_summary(softmax_linear)
 
     return softmax_linear
+
 
 def loss(logits, labels):
     """Add L2Loss to all the trainable variables.
@@ -296,12 +297,14 @@ def loss(logits, labels):
     # decay terms (L2 loss).
     return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
+
 def accu(logits, labels):
     prediction = tf.nn.softmax(logits)
     prediction = tf.cast(tf.arg_max(prediction, 1, name='Prediction'), tf.int32)
     accu = tf.reduce_mean(tf.cast(tf.equal(prediction, labels), tf.float32))
     tf.scalar_summary('Train_accu', accu)
     return accu
+
 
 def _add_loss_summaries(total_loss):
     """Add summaries for losses in CIFAR-10 model.
