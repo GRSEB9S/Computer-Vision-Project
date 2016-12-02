@@ -68,6 +68,7 @@ MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
 NUM_EPOCHS_PER_DECAY = 350.0      # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
+KEEP_RATE = 0.8
 
 # If a model is trained with multiple GPUs, prefix all Op names with tower_name
 # to differentiate the operations. Note that this prefix is removed from the
@@ -202,7 +203,7 @@ def inference(images):
     # conv1
     with tf.variable_scope('conv1') as scope:
         kernel = _variable_with_weight_decay('weights',
-                                             shape=[3, 3, 1, 64],
+                                             shape=[4, 4, 1, 36],
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(images, kernel, [1, 1, 1, 1], padding='SAME')
@@ -212,7 +213,7 @@ def inference(images):
         _activation_summary(conv1)
 
     # pool1
-    pool1 = tf.nn.max_pool(conv1, ksize=[1, 3, 3, 1], strides=[1, 2, 2, 1],
+    pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
                            padding='SAME', name='pool1')
     # norm1
     norm1 = tf.nn.lrn(pool1, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
@@ -221,7 +222,7 @@ def inference(images):
     # conv2
     with tf.variable_scope('conv2') as scope:
         kernel = _variable_with_weight_decay('weights',
-                                             shape=[3, 3, 64, 64],
+                                             shape=[5, 5, 36, 48],
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
@@ -234,7 +235,7 @@ def inference(images):
     norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
                       name='norm2')
     # pool2
-    pool2 = tf.nn.max_pool(norm2, ksize=[1, 3, 3, 1],
+    pool2 = tf.nn.max_pool(norm2, ksize=[1, 2, 2, 1],
                            strides=[1, 2, 2, 1], padding='SAME', name='pool2')
 
     # local3
@@ -242,18 +243,20 @@ def inference(images):
         # Move everything into depth so we can perform a single matrix multiply.
         reshape = tf.reshape(norm2, [FLAGS.batch_size, -1])
         dim = reshape.get_shape()[1].value
-        weights = _variable_with_weight_decay('weights', shape=[dim, 384],
+        weights = _variable_with_weight_decay('weights', shape=[dim, 512],
                                               stddev=0.04, wd=0.004)
         biases = _variable_on_cpu('biases', [384], tf.constant_initializer(0.1))
         local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
+        local3 = tf.nn.dropout(local3, KEEP_RATE)
         _activation_summary(local3)
 
     # local4
     with tf.variable_scope('local4') as scope:
-        weights = _variable_with_weight_decay('weights', shape=[384, 192],
+        weights = _variable_with_weight_decay('weights', shape=[512, 512],
                                               stddev=0.04, wd=0.004)
         biases = _variable_on_cpu('biases', [192], tf.constant_initializer(0.1))
         local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
+        local4 = tf.nn.dropout(local4, KEEP_RATE)
         _activation_summary(local4)
 
     # linear layer(WX + b),
@@ -261,15 +264,14 @@ def inference(images):
     # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
     # and performs the softmax internally for efficiency.
     with tf.variable_scope('softmax_linear') as scope:
-        weights = _variable_with_weight_decay('weights', [192, NUM_CLASSES],
-                                              stddev=1/192.0, wd=0.0)
+        weights = _variable_with_weight_decay('weights', [512, NUM_CLASSES],
+                                              stddev=1/512.0, wd=0.0)
         biases = _variable_on_cpu('biases', [NUM_CLASSES],
                                   tf.constant_initializer(0.0))
         softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
         _activation_summary(softmax_linear)
 
     return softmax_linear
-
 
 def loss(logits, labels):
     """Add L2Loss to all the trainable variables.
@@ -294,6 +296,12 @@ def loss(logits, labels):
     # decay terms (L2 loss).
     return tf.add_n(tf.get_collection('losses'), name='total_loss')
 
+def accu(logits, labels):
+    prediction = tf.nn.softmax(logits)
+    prediction = tf.cast(tf.arg_max(prediction, 1, name='Prediction'), tf.int32)
+    accu = tf.reduce_mean(tf.cast(tf.equal(prediction, labels), tf.float32))
+    tf.scalar_summary('Train_accu', accu)
+    return accu
 
 def _add_loss_summaries(total_loss):
     """Add summaries for losses in CIFAR-10 model.

@@ -38,6 +38,9 @@ def train():
         # Calculate loss.
         loss = cifar10.loss(logits, labels)
 
+        # calculate accuracy
+        accu = cifar10.accu(logits, labels)
+
         # Build a Graph that trains the model with one batch of examples and
         # updates the model parameters.
         train_op = cifar10.train(loss, global_step)
@@ -65,7 +68,7 @@ def train():
 
         for step in xrange(FLAGS.max_steps):
             start_time = time.time()
-            _, loss_value = sess.run([train_op, loss])
+            _, loss_value, accuracy_value = sess.run([train_op, loss, accu])
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -75,9 +78,9 @@ def train():
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = float(duration)
 
-                format_str = ('%s: step %d, loss = %.2f (%.1f examples/sec; %.3f '
+                format_str = ('%s: step %d, loss = %.2f, accu = %.2f (%.1f examples/sec; %.3f '
                               'sec/batch)')
-                print(format_str % (datetime.now(), step, loss_value,
+                print(format_str % (datetime.now(), step, loss_value, accuracy_value,
                                     examples_per_sec, sec_per_batch))
 
             if step % 100 == 0:
