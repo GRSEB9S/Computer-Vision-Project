@@ -45,6 +45,13 @@ def train():
         # updates the model parameters.
         train_op = cifar10.train(loss, global_step)
 
+        # validation
+        val_images, val_labels = cifar10.inputs(eval_data=True)
+
+        val_logits = cifar10.inference(val_images, reuse=True)
+
+        top_k_op = tf.nn.in_top_k(val_logits, val_labels, 1)
+
         # Create a saver.
         saver = tf.train.Saver(tf.all_variables())
 
@@ -71,7 +78,8 @@ def train():
 
         for step in xrange(FLAGS.max_steps):
             start_time = time.time()
-            _, loss_value, accuracy_value = sess.run([train_op, loss, accu])
+            _, loss_value, accuracy_value, top_k = sess.run([train_op, loss, accu,
+                top_k_op])
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -81,9 +89,10 @@ def train():
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = float(duration)
 
-                format_str = ('%s: step %d, loss = %.2f, accu = %.2f (%.1f examples/sec; %.3f '
+                format_str = ('%s: step %d, loss = %.2f, accu = %.2f,validation: %.2f (%.1f examples/sec; %.3f '
                               'sec/batch)')
-                print(format_str % (datetime.now(), step, loss_value, accuracy_value,
+                print(format_str % (datetime.now(), step, loss_value,
+                    accuracy_value, np.sum(top_k) / FLAGS.batch_size, 
                                     examples_per_sec, sec_per_batch))
 
             if step % 100 == 0:
