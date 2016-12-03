@@ -13,9 +13,9 @@ import tensorflow as tf
 IMAGE_SIZE = 27
 
 # Global constants describing the CIFAR-10 data set.
-NUM_CLASSES = 2
-NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 23000
-NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 10000
+NUM_CLASSES = 4
+NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN = 19635
+NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = 2805
 
 
 def read_cifar10(filename_queue):
@@ -50,7 +50,7 @@ def read_cifar10(filename_queue):
     label_bytes = 1  # 2 for CIFAR-100
     result.height = 27
     result.width = 27
-    result.depth = 1
+    result.depth = 3
     image_bytes = result.height * result.width * result.depth
     # Every record consists of a label followed by the image, with a
     # fixed number of bytes for each.
@@ -129,8 +129,8 @@ def distorted_inputs(data_dir, batch_size):
       images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
       labels: Labels. 1D tensor of [batch_size] size.
     """
-    filenames = [os.path.join(data_dir, 'set%d.bin' % i)
-                 for i in xrange(1, 6)]
+    filenames = [os.path.join(data_dir, 'out%d.bin' % i)
+                 for i in xrange(0,8)]
     for f in filenames:
         if not tf.gfile.Exists(f):
             raise ValueError('Failed to find file: ' + f)
@@ -156,19 +156,18 @@ def distorted_inputs(data_dir, batch_size):
 
     # Because these operations are not commutative, consider randomizing
     # the order their operation.
-    distorted_image = tf.image.random_brightness(distorted_image,
-                                                 max_delta=63)
+    #distorted_image = tf.image.random_brightness(distorted_image, max_delta=63)
     distorted_image = tf.image.random_contrast(distorted_image,
                                                lower=0.2, upper=1.8)
 
     # Subtract off the mean and divide by the variance of the pixels.
     if (tf.__version__ >= '0.11.0'):
-        float_image = tf.image.per_image_standardization(distorted_image)
+        float_image = tf.image.per_image_whitening(distorted_image)
     else:
         float_image = tf.image.per_image_whitening(distorted_image)
 
     # Ensure that the random shuffling has good mixing properties.
-    min_fraction_of_examples_in_queue = 0.4
+    min_fraction_of_examples_in_queue = 0.6
     min_queue_examples = int(NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN *
                              min_fraction_of_examples_in_queue)
     print ('Filling queue with %d CIFAR images before starting to train. '
@@ -193,11 +192,11 @@ def inputs(eval_data, data_dir, batch_size):
       labels: Labels. 1D tensor of [batch_size] size.
     """
     if not eval_data:
-        filenames = [os.path.join(data_dir, 'set%d.bin' % i)
+        filenames = [os.path.join(data_dir, 'out%d.bin' % i)
                      for i in xrange(1, 6)]
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
     else:
-        filenames = [os.path.join(data_dir, 'set6.bin')]
+        filenames = [os.path.join(data_dir, 'out7.bin')]
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
     for f in filenames:
@@ -226,7 +225,7 @@ def inputs(eval_data, data_dir, batch_size):
         float_image = tf.image.per_image_whitening(reshaped_image)
 
     # Ensure that the random shuffling has good mixing properties.
-    min_fraction_of_examples_in_queue = 0.4
+    min_fraction_of_examples_in_queue = 0.6
     min_queue_examples = int(num_examples_per_epoch *
                              min_fraction_of_examples_in_queue)
 

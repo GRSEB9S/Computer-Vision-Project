@@ -36,3 +36,4 @@
 *.local
 Detection/NN/cifar10_train
 *.jpg
+*.bin
