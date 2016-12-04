@@ -17,7 +17,7 @@ FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('train_dir', './cifar10_train',
                            """Directory where to write event logs """
                            """and checkpoint.""")
-tf.app.flags.DEFINE_integer('max_steps', 100000,
+tf.app.flags.DEFINE_integer('max_steps', 14000,
                             """Number of batches to run.""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
@@ -45,6 +45,13 @@ def train():
         # updates the model parameters.
         train_op = cifar10.train(loss, global_step)
 
+        # validation
+        val_images, val_labels = cifar10.inputs(eval_data=True)
+
+        val_logits = cifar10.inference(val_images, reuse=True)
+
+        top_k_op = tf.nn.in_top_k(val_logits, val_labels, 1)
+
         # Create a saver.
         saver = tf.train.Saver(tf.all_variables())
 
@@ -53,14 +60,14 @@ def train():
 
         # Build an initialization operation to run below.
         if (tf.__version__ >= '0.11.0'):
-            init = tf.global_variables_initializer()
+            init = tf.initialize_all_variables()
         else:
             init = tf.initialize_all_variables()
 
         # Start running operations on the Graph.
         sess = tf.Session(config=tf.ConfigProto(
             log_device_placement=FLAGS.log_device_placement,
-            device_count = {'GPU': 0}
+            device_count = {'GPU': 1}
         ))
         sess.run(init)
 
@@ -71,7 +78,8 @@ def train():
 
         for step in xrange(FLAGS.max_steps):
             start_time = time.time()
-            _, loss_value, accuracy_value = sess.run([train_op, loss, accu])
+            _, loss_value, accuracy_value, top_k = sess.run([train_op, loss, accu, top_k_op])
+
             duration = time.time() - start_time
 
             assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -81,15 +89,12 @@ def train():
                 examples_per_sec = num_examples_per_step / duration
                 sec_per_batch = float(duration)
 
-                format_str = ('%s: step %d, loss = %.2f, accu = %.2f (%.1f examples/sec; %.3f '
-                              'sec/batch)')
-                print(format_str % (datetime.now(), step, loss_value, accuracy_value,
-                                    examples_per_sec, sec_per_batch))
+                format_str = '%s: step %d, loss = %.2f, accu = %.2f, validation: %.2f (%.1f examples/sec; %.3f sec/batch)'
+                print(format_str % (datetime.now(), step, loss_value, accuracy_value, np.sum(top_k) / FLAGS.batch_size, examples_per_sec, sec_per_batch))
 
             if step % 100 == 0:
                 summary_str = sess.run(summary_op)
                 summary_writer.add_summary(summary_str, step)
-
 
             # Save the model checkpoint periodically.
             if step % 1000 == 0 or (step + 1) == FLAGS.max_steps:

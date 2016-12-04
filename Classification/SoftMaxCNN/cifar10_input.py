@@ -50,7 +50,7 @@ def read_cifar10(filename_queue):
     label_bytes = 1  # 2 for CIFAR-100
     result.height = 27
     result.width = 27
-    result.depth = 3
+    result.depth = 1
     image_bytes = result.height * result.width * result.depth
     # Every record consists of a label followed by the image, with a
     # fixed number of bytes for each.
@@ -66,8 +66,7 @@ def read_cifar10(filename_queue):
     record_bytes = tf.decode_raw(value, tf.uint8)
 
     # The first bytes represent the label, which we convert from uint8->int32.
-    result.label = tf.cast(
-        tf.slice(record_bytes, [0], [label_bytes]), tf.int32)
+    result.label = tf.cast(tf.slice(record_bytes, [0], [label_bytes]), tf.int32)
 
     # The remaining bytes after the label represent the image, which we reshape
     # from [depth * height * width] to [depth, height, width].
@@ -113,7 +112,7 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
             capacity=min_queue_examples + 3 * batch_size)
 
     # Display the training images in the visualizer.
-    tf.image_summary('images', images)
+    #tf.image_summary('images', images)
 
     return images, tf.reshape(label_batch, [batch_size])
 
@@ -129,8 +128,8 @@ def distorted_inputs(data_dir, batch_size):
       images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
       labels: Labels. 1D tensor of [batch_size] size.
     """
-    filenames = [os.path.join(data_dir, 'out%d.bin' % i)
-                 for i in xrange(0,8)]
+    filenames = [os.path.join(data_dir, 'gray%d.bin' % i)
+                 for i in xrange(0,7)]
     for f in filenames:
         if not tf.gfile.Exists(f):
             raise ValueError('Failed to find file: ' + f)
@@ -192,11 +191,11 @@ def inputs(eval_data, data_dir, batch_size):
       labels: Labels. 1D tensor of [batch_size] size.
     """
     if not eval_data:
-        filenames = [os.path.join(data_dir, 'out%d.bin' % i)
-                     for i in xrange(1, 6)]
+        filenames = [os.path.join(data_dir, 'gray%d.bin' % i)
+                     for i in xrange(0, 7)]
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN
     else:
-        filenames = [os.path.join(data_dir, 'out7.bin')]
+        filenames = [os.path.join(data_dir, 'gray7.bin')]
         num_examples_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
     for f in filenames:
@@ -220,7 +219,7 @@ def inputs(eval_data, data_dir, batch_size):
 
     # Subtract off the mean and divide by the variance of the pixels.
     if (tf.__version__ >= '0.11.0'):
-        float_image = tf.image.per_image_standardization(resized_image)
+        float_image = tf.image.per_image_whitening(resized_image)
     else:
         float_image = tf.image.per_image_whitening(reshaped_image)
 

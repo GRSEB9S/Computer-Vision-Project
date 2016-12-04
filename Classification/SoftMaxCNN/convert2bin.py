@@ -9,15 +9,13 @@ random.shuffle(img_list)
 # total number of training set is 22444: 22444/8 = 2805.5
 
 for j in range(0, 8):
-    name = 'out'+ str(j) + '.bin'
+    name = 'gray'+ str(j) + '.bin'
     f = open(name,'wb')
     for i in range(j*2805, (j+1)*2805):
-        im = Image.open(img_list[i])
+        im = Image.open(img_list[i]).convert('L')
         im = np.array(im)
 
-        r = im[:,:,0].flatten()
-        g = im[:,:,1].flatten()
-        b = im[:,:,2].flatten()
+        g = im[:,:].flatten()
 
         if 'epithelial' in img_list[i]:
             label = [0]
@@ -30,7 +28,7 @@ for j in range(0, 8):
         else:
             print('Something is wrong, I can feel it!')
 
-        out = np.array(list(label) + list(r) + list(g) + list(b), np.uint8)
+        out = np.array(list(label) + list(g), np.uint8)
         f.write(out)
     f.close()
 

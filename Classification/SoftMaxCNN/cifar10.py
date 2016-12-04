@@ -65,7 +65,7 @@ NUM_EXAMPLES_PER_EPOCH_FOR_EVAL = cifar10_input.NUM_EXAMPLES_PER_EPOCH_FOR_EVAL
 
 # Constants describing the training process.
 MOVING_AVERAGE_DECAY = 0.9999     # The decay to use for the moving average.
-NUM_EPOCHS_PER_DECAY = 100.0      # Epochs after which learning rate decays.
+NUM_EPOCHS_PER_DECAY = 30.0      # Epochs after which learning rate decays.
 LEARNING_RATE_DECAY_FACTOR = 0.1  # Learning rate decay factor.
 INITIAL_LEARNING_RATE = 0.1       # Initial learning rate.
 KEEP_RATE = 0.5
@@ -186,7 +186,7 @@ def inputs(eval_data):
     return images, labels
 
 
-def inference(images):
+def inference(images, reuse=False):
     """Build the CIFAR-10 model.
 
     Args:
@@ -202,6 +202,8 @@ def inference(images):
     #
     # conv1
     with tf.variable_scope('conv1') as scope:
+        if reuse:
+            scope.reuse_variables()
         kernel = _variable_with_weight_decay('weights',
                                              shape=[4, 4, 1, 36],
                                              stddev=5e-2,
@@ -210,7 +212,8 @@ def inference(images):
         biases = _variable_on_cpu('biases', [36], tf.constant_initializer(0.0))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv1 = tf.nn.relu(pre_activation, name=scope.name)
-        _activation_summary(conv1)
+        if not reuse:
+            _activation_summary(conv1)
 
     # pool1
     pool1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
@@ -221,15 +224,18 @@ def inference(images):
 
     # conv2
     with tf.variable_scope('conv2') as scope:
+        if reuse:
+            scope.reuse_variables()
         kernel = _variable_with_weight_decay('weights',
-                                             shape=[5, 5, 36, 48],
+                                             shape=[3, 3, 36, 48],
                                              stddev=5e-2,
                                              wd=0.0)
         conv = tf.nn.conv2d(norm1, kernel, [1, 1, 1, 1], padding='SAME')
         biases = _variable_on_cpu('biases', [48], tf.constant_initializer(0.1))
         pre_activation = tf.nn.bias_add(conv, biases)
         conv2 = tf.nn.relu(pre_activation, name=scope.name)
-        _activation_summary(conv2)
+        if not reuse:
+            _activation_summary(conv2)
 
     # norm2
     norm2 = tf.nn.lrn(conv2, 4, bias=1.0, alpha=0.001 / 9.0, beta=0.75,
@@ -240,6 +246,8 @@ def inference(images):
 
     # local3
     with tf.variable_scope('local3') as scope:
+        if reuse:
+            scope.reuse_variables()
         # Move everything into depth so we can perform a single matrix multiply.
         reshape = tf.reshape(norm2, [FLAGS.batch_size, -1])
         dim = reshape.get_shape()[1].value
@@ -248,28 +256,36 @@ def inference(images):
         biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
         local3 = tf.nn.relu(tf.matmul(reshape, weights) + biases, name=scope.name)
         local3 = tf.nn.dropout(local3, KEEP_RATE)
-        _activation_summary(local3)
+        if not reuse:
+            _activation_summary(local3)
+
 
     # local4
     with tf.variable_scope('local4') as scope:
+        if reuse:
+            scope.reuse_variables()
         weights = _variable_with_weight_decay('weights', shape=[512, 512],
                                               stddev=0.04, wd=0.004)
         biases = _variable_on_cpu('biases', [512], tf.constant_initializer(0.1))
         local4 = tf.nn.relu(tf.matmul(local3, weights) + biases, name=scope.name)
         local4 = tf.nn.dropout(local4, KEEP_RATE)
-        _activation_summary(local4)
+        if not reuse:
+            _activation_summary(local4)
 
     # linear layer(WX + b),
     # We don't apply softmax here because
     # tf.nn.sparse_softmax_cross_entropy_with_logits accepts the unscaled logits
     # and performs the softmax internally for efficiency.
     with tf.variable_scope('softmax_linear') as scope:
+        if reuse:
+            scope.reuse_variables()
         weights = _variable_with_weight_decay('weights', [512, NUM_CLASSES],
                                               stddev=1/512.0, wd=0.0)
         biases = _variable_on_cpu('biases', [NUM_CLASSES],
                                   tf.constant_initializer(0.0))
         softmax_linear = tf.add(tf.matmul(local4, weights), biases, name=scope.name)
-        _activation_summary(softmax_linear)
+        if not reuse:
+            _activation_summary(softmax_linear)
 
     return softmax_linear
 

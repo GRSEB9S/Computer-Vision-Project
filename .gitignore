@@ -37,3 +37,6 @@
 Detection/NN/cifar10_train
 *.jpg
 *.bin
+*.mat
+Classification/SoftMaxCNN/cifar10_train
+Classification/SoftMaxCNN/cifar10_train_color
